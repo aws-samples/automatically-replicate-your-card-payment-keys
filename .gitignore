@@ -1,0 +1,13 @@
+.venv
+.DS_Store
+apc_crr/__pycache__
+src/apcSetupOrchestrator
+scripts/setup.sh
+application/out
+tests
+source.bat
+requirements-dev.txt
+cdk.out
+cdk.context.json
+cdk.json.bkp
+app-sec

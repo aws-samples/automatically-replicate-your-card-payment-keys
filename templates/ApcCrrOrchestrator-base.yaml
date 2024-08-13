@@ -1,0 +1,312 @@
+Mappings:
+  AzIdMap:
+    us-east-1:
+      az1: "us-east-1a"
+      az2: "us-east-1b"
+    us-east-2:
+      az1: "us-east-2a"
+      az2: "us-east-2b"
+    us-west-2:
+      az1: "us-west-2a"
+      az2: "us-west-2b"
+    eu-central-1:
+      az1: "eu-central-1a"
+      az2: "eu-central-1b"
+    eu-west-1:
+      az1: "eu-west-1a"
+      az2: "eu-west-1b"
+    ap-northeast-1:
+      az1: "ap-northeast-1a"
+      az2: "ap-northeast-1c"
+    ap-southeast-1:
+      az1: "ap-southeast-1a"
+      az2: "ap-southeast-1b"
+
+Parameters:
+  DestRegion:
+    Type: String
+  DestVpcCidr:
+    Type: String
+  DestVpcName:
+    Type: String
+  DestSubnet1Cidr:
+    Type: String
+  DestSubnet2Cidr:
+    Type: String
+  DestSubnetPrefixName:
+    Type: String
+  DestRouteTablePrefixName:
+    Type: String
+  OriginRegion:
+    Type: String
+  OriginVpcId:
+    Type: String
+  OriginVpcCidr:
+    Type: String
+
+Resources:
+  ApcCrrDestinationVPC:
+    Type: "AWS::EC2::VPC"
+    Properties:
+      CidrBlock:
+        Ref: DestVpcCidr
+      EnableDnsSupport: true
+      InstanceTenancy: "default"
+      EnableDnsHostnames: true
+      Tags:
+        - Value:
+            Ref: DestVpcName
+          Key: "Name"
+  ApcCrrDestinationSubnet1:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC
+      MapPublicIpOnLaunch: false
+      EnableDns64: false
+      AvailabilityZone:
+        Fn::FindInMap:
+          - AzIdMap
+          - Ref: DestRegion
+          - az1
+      CidrBlock:
+        Ref: DestSubnet1Cidr
+      Ipv6Native: false
+      Tags:
+        - Value:
+            Fn::Join:
+              - ""
+              - - Ref: DestSubnetPrefixName
+                - "1-"
+                - Fn::FindInMap:
+                    - AzIdMap
+                    - Ref: DestRegion
+                    - az1
+                # - Ref: DestRegion
+                # - "a"
+          Key: "Name"
+  ApcCrrDestinationSubnet2:
+    Type: "AWS::EC2::Subnet"
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC
+      MapPublicIpOnLaunch: false
+      EnableDns64: false
+      AvailabilityZone:
+        Fn::FindInMap:
+          - AzIdMap
+          - Ref: DestRegion
+          - az2
+      CidrBlock:
+        Ref: DestSubnet2Cidr
+      Ipv6Native: false
+      Tags:
+        - Value:
+            Fn::Join:
+              - ""
+              - - Ref: DestSubnetPrefixName
+                - "2-"
+                - Fn::FindInMap:
+                    - AzIdMap
+                    - Ref: DestRegion
+                    - az2
+                # - Ref: DestRegion
+                # - "b"
+          Key: "Name"
+  ApcCrrDestinationRouteTable1:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC
+      Tags:
+        - Value:
+            Fn::Join:
+              - ""
+              - - Ref: DestRouteTablePrefixName
+                - "1-"
+                - Fn::FindInMap:
+                    - AzIdMap
+                    - Ref: DestRegion
+                    - az1
+                # - Ref: DestRegion
+                # - "a"
+          Key: "Name"
+  ApcCrrDestinationRouteTable2:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC
+      Tags:
+        - Value:
+            Fn::Join:
+              - ""
+              - - Ref: DestRouteTablePrefixName
+                - "2-"
+                - Fn::FindInMap:
+                    - AzIdMap
+                    - Ref: DestRegion
+                    - az2
+                # - Ref: DestRegion
+                # - "b"
+          Key: "Name"
+  ApcCrrDestinationRouteTable1Subnet1Association:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable1
+      SubnetId:
+        Ref: ApcCrrDestinationSubnet1
+  ApcCrrDestinationRouteTable2Subnet2Association:
+    Type: "AWS::EC2::SubnetRouteTableAssociation"
+    Properties:
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable2
+      SubnetId:
+        Ref: ApcCrrDestinationSubnet2
+  ApcCrrVpcPeeringConnection:
+    Type: "AWS::EC2::VPCPeeringConnection"
+    Properties:
+      PeerRegion:
+        Ref: OriginRegion
+      VpcId:
+        Ref: ApcCrrDestinationVPC
+      PeerVpcId:
+        Ref: OriginVpcId
+      PeerOwnerId:
+        Ref: AWS::AccountId
+      Tags:
+        - Key: "Name"
+          Value: "apc-crr/peering-connection"
+  ApcCrrVpcPeeringRouteForRT1:
+    Type: "AWS::EC2::Route"
+    Properties:
+      VpcPeeringConnectionId:
+        Ref: ApcCrrVpcPeeringConnection
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable1
+      DestinationCidrBlock:
+        Ref: OriginVpcCidr
+  ApcCrrVpcPeeringRouteForRT2:
+    Type: "AWS::EC2::Route"
+    Properties:
+      VpcPeeringConnectionId:
+        Ref: ApcCrrVpcPeeringConnection
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable2
+      DestinationCidrBlock:
+        Ref: OriginVpcCidr
+  ApcCrrVpcEndpointSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "VPC Endpoint SG"
+      VpcId:
+        Ref: ApcCrrDestinationVPC
+      SecurityGroupIngress:
+        - CidrIp:
+            Ref: OriginVpcCidr
+          IpProtocol: "tcp"
+          Description: "Allow access from Origin VPC CIDR"
+          FromPort: 443
+          ToPort: 443
+      SecurityGroupEgress:
+        - CidrIp:
+            Ref: OriginVpcCidr
+          IpProtocol: "tcp"
+          Description: "Allow access to Origin VPC CIDR"
+          FromPort: 443
+          ToPort: 443
+  ApcCrrVpcEndpointSecurityGroupIngress:
+    Type: "AWS::EC2::SecurityGroupIngress"
+    Properties:
+      Description: "Ingress Rules allowing access from an Origin VPC"
+      GroupId:
+        Ref: ApcCrrVpcEndpointSecurityGroup
+      IpProtocol: "tcp"
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Ref: ApcCrrVpcEndpointSecurityGroup
+  ApcCrrVpcEndpointControlPlane:
+    Type: "AWS::EC2::VPCEndpoint"
+    Properties:
+      PrivateDnsEnabled: true
+      VpcId:
+        Ref: ApcCrrDestinationVPC
+      RouteTableIds: []
+      ServiceName:
+        Fn::Join:
+          - ""
+          - - "com.amazonaws."
+            - Ref: DestRegion
+            - ".payment-cryptography.controlplane"
+      PolicyDocument:
+        Statement:
+          - Resource: "*"
+            Action: "*"
+            Effect: "Allow"
+            Principal: "*"
+      VpcEndpointType: "Interface"
+      SecurityGroupIds:
+        - Fn::GetAtt:
+            - ApcCrrVpcEndpointSecurityGroup
+            - GroupId
+      SubnetIds:
+        - Ref: ApcCrrDestinationSubnet1
+        - Ref: ApcCrrDestinationSubnet2
+  ApcCrrRoute53HostedZone:
+    Type: "AWS::Route53::HostedZone"
+    Properties:
+      VPCs:
+        - VPCRegion:
+            Ref: OriginRegion
+          VPCId:
+            Ref: OriginVpcId
+      HostedZoneConfig: {}
+      Name:
+        Fn::Select:
+          - 1
+          - Fn::Split:
+              - ":"
+              - Fn::Select:
+                  - 3
+                  - Fn::GetAtt:
+                      - ApcCrrVpcEndpointControlPlane
+                      - DnsEntries
+  ApcCrrRoute53RecordSet:
+    Type: "AWS::Route53::RecordSet"
+    Properties:
+      HostedZoneId:
+        Ref: ApcCrrRoute53HostedZone
+      Name:
+        Fn::Select:
+          - 1
+          - Fn::Split:
+              - ":"
+              - Fn::Select:
+                  - 3
+                  - Fn::GetAtt:
+                      - ApcCrrVpcEndpointControlPlane
+                      - DnsEntries
+      Type: "A"
+      AliasTarget:
+        DNSName:
+          Fn::Select:
+            - 1
+            - Fn::Split:
+                - ":"
+                - Fn::Select:
+                    - 0
+                    - Fn::GetAtt:
+                        - ApcCrrVpcEndpointControlPlane
+                        - DnsEntries
+        EvaluateTargetHealth: false
+        HostedZoneId:
+          Fn::Select:
+            - 0
+            - Fn::Split:
+                - ":"
+                - Fn::Select:
+                    - 0
+                    - Fn::GetAtt:
+                        - ApcCrrVpcEndpointControlPlane
+                        - DnsEntries

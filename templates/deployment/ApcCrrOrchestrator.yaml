@@ -1,0 +1,302 @@
+Mappings:
+  AzIdMap:
+    us-east-1:
+      az1: us-east-1a
+      az2: us-east-1b
+    us-east-2:
+      az1: us-east-2a
+      az2: us-east-2b
+    us-west-2:
+      az1: us-west-2a
+      az2: us-west-2b
+    eu-central-1:
+      az1: eu-central-1a
+      az2: eu-central-1b
+    eu-west-1:
+      az1: eu-west-1a
+      az2: eu-west-1b
+    ap-northeast-1:
+      az1: ap-northeast-1a
+      az2: ap-northeast-1c
+    ap-southeast-1:
+      az1: ap-southeast-1a
+      az2: ap-southeast-1b
+Parameters:
+  DestRegion:
+    Type: String
+  DestVpcCidr:
+    Type: String
+  DestVpcName:
+    Type: String
+  DestSubnet1Cidr:
+    Type: String
+  DestSubnet2Cidr:
+    Type: String
+  DestSubnetPrefixName:
+    Type: String
+  DestRouteTablePrefixName:
+    Type: String
+  OriginRegion:
+    Type: String
+  OriginVpcId:
+    Type: String
+  OriginVpcCidr:
+    Type: String
+Resources:
+  ApcCrrDestinationVPC61848897:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock:
+        Ref: DestVpcCidr
+      EnableDnsSupport: true
+      InstanceTenancy: default
+      EnableDnsHostnames: true
+      Tags:
+      - Value:
+          Ref: DestVpcName
+        Key: Name
+  ApcCrrDestinationSubnet161848897:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC61848897
+      MapPublicIpOnLaunch: false
+      EnableDns64: false
+      AvailabilityZone:
+        Fn::FindInMap:
+        - AzIdMap
+        - Ref: DestRegion
+        - az1
+      CidrBlock:
+        Ref: DestSubnet1Cidr
+      Ipv6Native: false
+      Tags:
+      - Value:
+          Fn::Join:
+          - ''
+          - - Ref: DestSubnetPrefixName
+            - 1-
+            - Fn::FindInMap:
+              - AzIdMap
+              - Ref: DestRegion
+              - az1
+        Key: Name
+  ApcCrrDestinationSubnet261848897:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC61848897
+      MapPublicIpOnLaunch: false
+      EnableDns64: false
+      AvailabilityZone:
+        Fn::FindInMap:
+        - AzIdMap
+        - Ref: DestRegion
+        - az2
+      CidrBlock:
+        Ref: DestSubnet2Cidr
+      Ipv6Native: false
+      Tags:
+      - Value:
+          Fn::Join:
+          - ''
+          - - Ref: DestSubnetPrefixName
+            - 2-
+            - Fn::FindInMap:
+              - AzIdMap
+              - Ref: DestRegion
+              - az2
+        Key: Name
+  ApcCrrDestinationRouteTable161848897:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC61848897
+      Tags:
+      - Value:
+          Fn::Join:
+          - ''
+          - - Ref: DestRouteTablePrefixName
+            - 1-
+            - Fn::FindInMap:
+              - AzIdMap
+              - Ref: DestRegion
+              - az1
+        Key: Name
+  ApcCrrDestinationRouteTable261848897:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId:
+        Ref: ApcCrrDestinationVPC61848897
+      Tags:
+      - Value:
+          Fn::Join:
+          - ''
+          - - Ref: DestRouteTablePrefixName
+            - 2-
+            - Fn::FindInMap:
+              - AzIdMap
+              - Ref: DestRegion
+              - az2
+        Key: Name
+  ApcCrrDestinationRouteTable1Subnet1Association61848897:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable161848897
+      SubnetId:
+        Ref: ApcCrrDestinationSubnet161848897
+  ApcCrrDestinationRouteTable2Subnet2Association61848897:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable261848897
+      SubnetId:
+        Ref: ApcCrrDestinationSubnet261848897
+  ApcCrrVpcPeeringConnection61848897:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties:
+      PeerRegion:
+        Ref: OriginRegion
+      VpcId:
+        Ref: ApcCrrDestinationVPC61848897
+      PeerVpcId:
+        Ref: OriginVpcId
+      PeerOwnerId:
+        Ref: AWS::AccountId
+      Tags:
+      - Key: Name
+        Value: apc-crr/peering-connection
+  ApcCrrVpcPeeringRouteForRT161848897:
+    Type: AWS::EC2::Route
+    Properties:
+      VpcPeeringConnectionId:
+        Ref: ApcCrrVpcPeeringConnection61848897
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable161848897
+      DestinationCidrBlock:
+        Ref: OriginVpcCidr
+  ApcCrrVpcPeeringRouteForRT261848897:
+    Type: AWS::EC2::Route
+    Properties:
+      VpcPeeringConnectionId:
+        Ref: ApcCrrVpcPeeringConnection61848897
+      RouteTableId:
+        Ref: ApcCrrDestinationRouteTable261848897
+      DestinationCidrBlock:
+        Ref: OriginVpcCidr
+  ApcCrrVpcEndpointSecurityGroup61848897:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: VPC Endpoint SG
+      VpcId:
+        Ref: ApcCrrDestinationVPC61848897
+      SecurityGroupIngress:
+      - CidrIp:
+          Ref: OriginVpcCidr
+        IpProtocol: tcp
+        Description: Allow access from Origin VPC CIDR
+        FromPort: 443
+        ToPort: 443
+      SecurityGroupEgress:
+      - CidrIp:
+          Ref: OriginVpcCidr
+        IpProtocol: tcp
+        Description: Allow access to Origin VPC CIDR
+        FromPort: 443
+        ToPort: 443
+  ApcCrrVpcEndpointSecurityGroupIngress61848897:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      Description: Ingress Rules allowing access from an Origin VPC
+      GroupId:
+        Ref: ApcCrrVpcEndpointSecurityGroup61848897
+      IpProtocol: tcp
+      FromPort: 443
+      ToPort: 443
+      SourceSecurityGroupId:
+        Ref: ApcCrrVpcEndpointSecurityGroup61848897
+  ApcCrrVpcEndpointControlPlane61848897:
+    Type: AWS::EC2::VPCEndpoint
+    Properties:
+      PrivateDnsEnabled: true
+      VpcId:
+        Ref: ApcCrrDestinationVPC61848897
+      RouteTableIds: []
+      ServiceName:
+        Fn::Join:
+        - ''
+        - - com.amazonaws.
+          - Ref: DestRegion
+          - .payment-cryptography.controlplane
+      PolicyDocument:
+        Statement:
+        - Resource: '*'
+          Action: '*'
+          Effect: Allow
+          Principal: '*'
+      VpcEndpointType: Interface
+      SecurityGroupIds:
+      - Fn::GetAtt:
+        - ApcCrrVpcEndpointSecurityGroup61848897
+        - GroupId
+      SubnetIds:
+      - Ref: ApcCrrDestinationSubnet161848897
+      - Ref: ApcCrrDestinationSubnet261848897
+  ApcCrrRoute53HostedZone61848897:
+    Type: AWS::Route53::HostedZone
+    Properties:
+      VPCs:
+      - VPCRegion:
+          Ref: OriginRegion
+        VPCId:
+          Ref: OriginVpcId
+      HostedZoneConfig: {}
+      Name:
+        Fn::Select:
+        - 1
+        - Fn::Split:
+          - ':'
+          - Fn::Select:
+            - 3
+            - Fn::GetAtt:
+              - ApcCrrVpcEndpointControlPlane61848897
+              - DnsEntries
+  ApcCrrRoute53RecordSet61848897:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId:
+        Ref: ApcCrrRoute53HostedZone61848897
+      Name:
+        Fn::Select:
+        - 1
+        - Fn::Split:
+          - ':'
+          - Fn::Select:
+            - 3
+            - Fn::GetAtt:
+              - ApcCrrVpcEndpointControlPlane61848897
+              - DnsEntries
+      Type: A
+      AliasTarget:
+        DNSName:
+          Fn::Select:
+          - 1
+          - Fn::Split:
+            - ':'
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - ApcCrrVpcEndpointControlPlane61848897
+                - DnsEntries
+        EvaluateTargetHealth: false
+        HostedZoneId:
+          Fn::Select:
+          - 0
+          - Fn::Split:
+            - ':'
+            - Fn::Select:
+              - 0
+              - Fn::GetAtt:
+                - ApcCrrVpcEndpointControlPlane61848897
+                - DnsEntries

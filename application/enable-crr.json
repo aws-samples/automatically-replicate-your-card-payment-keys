@@ -1,0 +1,14 @@
+{
+  "enabled": true,
+  "dest_region": "ap-northeast-1",
+  "kek_alias": "CRR_KEK_DO-NOT-DELETE_",
+  "key_algo": "TDES_3KEY",
+  "kdh_alias": "KDH_SIGN_KEY_DO-NOT-DELETE_",
+  "krd_alias": "KRD_SIGN_KEY_DO-NOT-DELETE_",
+  "dest_vpc_name": "apc-crr/destination-vpc",
+  "dest_vpc_cidr": "10.3.0.0/16",
+  "dest_subnet1_cidr": "10.3.0.0/22",
+  "dest_subnet2_cidr": "10.3.4.0/22",
+  "dest_subnets_prefix_name": "apc-crr/destination-vpc/destination-subnet-private",
+  "dest_rt_prefix_name": "apc-crr/destination-vpc/destination-rtb-private"
+}
