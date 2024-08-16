@@ -1,6 +1,6 @@
 {
   "enabled": true,
-  "dest_region": "ap-northeast-1",
+  "dest_region": "us-west-2",
   "kek_alias": "CRR_KEK_DO-NOT-DELETE_",
   "key_algo": "TDES_3KEY",
   "kdh_alias": "KDH_SIGN_KEY_DO-NOT-DELETE_",
